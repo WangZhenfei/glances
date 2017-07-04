@@ -177,6 +177,8 @@ Examples of use:
                             dest='export_cassandra', help='export stats to a Cassandra or Scylla server (cassandra lib needed)')
         parser.add_argument('--export-couchdb', action='store_true', default=False,
                             dest='export_couchdb', help='export stats to a CouchDB server (couch lib needed)')
+        parser.add_argument('--export-mongodb', action='store_true', default=False,
+                            dest='export_mongodb', help='export stats to a Mongodb server (couch lib needed)')
         parser.add_argument('--export-elasticsearch', action='store_true', default=False,
                             dest='export_elasticsearch', help='export stats to an ElasticSearch server (elasticsearch lib needed)')
         parser.add_argument('--export-influxdb', action='store_true', default=False,
