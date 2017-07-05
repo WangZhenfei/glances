@@ -22,9 +22,11 @@
 import sys
 from time import time
 
+import socket
+
 from glances.logger import logger
 from glances.exports.glances_export import GlancesExport
-from pymongo import MongoClient
+from pymongo import MongoClient, MongoReplicaSetClient
 
 
 class Export(GlancesExport):
@@ -44,13 +46,12 @@ class Export(GlancesExport):
 
         # Load the Cassandra configuration file section
         self.export_enable = self.load_conf('mongodb',
-                                            mandatories=['host', 'port', 'db'],
-                                            options=['user', 'password'])
+                                            mandatories=['replica_flag', 'db'],
+                                            options=['host', 'port', 'replica_connection', 'replicaSet', 'user', 'password'])
         if not self.export_enable:
             sys.exit(2)
 
         # Init the Mongodb client
-        #TODO 未来需要考虑replica的模式
         self.client = self.init()
 
     def init(self):
@@ -59,15 +60,27 @@ class Export(GlancesExport):
             return None
 
         if self.user is None:
-            server_uri = 'mongodb://{}:{}/'.format(self.host, self.port)
+            if self.replica_flag is None or not self.replica_flag or self.replica_flag.upper() == "FALSE":
+                server_uri = 'mongodb://{}:{}/'.format(self.host, self.port)
+            else:
+                server_uri = 'mongodb:{}'.format(self.replica_connection)
         else:
-            server_uri = 'mongodb://{}:{}@{}:{}/'.format(self.user,
-                                                         self.password,
-                                                         self.host,
-                                                         self.port)
+            if self.replica_flag is None or not self.replica_flag or self.replica_flag.upper() == "FALSE":
+                server_uri = 'mongodb://{}:{}@{}:{}/'.format(self.user,
+                                                             self.password,
+                                                             self.host,
+                                                             self.port)
+            else:
+                server_uri = 'mongodb://{}:{}@{}/'.format(self.user,
+                                                          self.password,
+                                                          self.replica_connection)
 
         try:
-            s = MongoClient(self.host, self.port)
+            if self.replica_flag is None or not self.replica_flag or self.replica_flag.upper() == "FALSE":
+                s = MongoClient(self.host, int(self.port))
+            else:
+                s = MongoReplicaSetClient(self.replica_connection, replicaSet=self.replicaSet)
+
         except Exception as e:
             logger.critical("Cannot connect to Mongodb server %s (%s)" % (server_uri, e))
             sys.exit(2)
@@ -99,6 +112,7 @@ class Export(GlancesExport):
         # Set the type to the current stat name
         data['type'] = name
         data['time'] = time()
+        data['hostname'] = socket.gethostbyname()
 
         # Write input to the Mongodb database 'glances_stats' collection
         try:
